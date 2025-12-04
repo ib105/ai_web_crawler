@@ -186,38 +186,6 @@ The scraper will now run automatically every day at 9:00 AM.
 3. **Schedule Pipeline**: Daily at 9:30 AM IST
 4. **Run and verify** data flows into Lakehouse
 
-## Configuration
-
-### Scraping Configuration (`config.py`)
-
-```python
-# Target website URL
-BASE_URL = "https://www.moneycontrol.com/city"
-
-# CSS selector for content extraction
-CSS_SELECTOR = "[class='topictabpane']"
-
-# Required fields for each news article
-REQUIRED_KEYS = [
-    "Title",
-    "description",
-    "url",    
-    "publishtime",
-    "provider"
-]
-```
-
-### Data Model (`models/mcnews.py`)
-
-```python
-class News(BaseModel):
-    Title: str
-    description: str
-    publishtime: str
-    url: str
-    provider: str
-```
-
 ## Troubleshooting
 
 ### Common Issues
@@ -261,7 +229,7 @@ az storage blob list \
 
 
 
-## 🔗 Resources
+## Resources
 
 - [crawl4ai Documentation](https://docs.crawl4ai.com/)
 - [Azure Container Instances](https://docs.microsoft.com/azure/container-instances/)
@@ -270,4 +238,4 @@ az storage blob list \
 
 ---
 
-**Last Updated**: December 2024
+**Last Updated**: December 2025
