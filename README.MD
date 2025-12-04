@@ -1,6 +1,6 @@
 # Automated News Web Scraper
 
-A production-ready web scraping application that automatically extracts news articles from websites and stores them in Azure Blob Storage for analysis in Microsoft Fabric.
+A web scraping application that automatically extracts news articles from websites and stores them in Azure Blob Storage for analysis in Microsoft Fabric.
 
 ## Features
 
