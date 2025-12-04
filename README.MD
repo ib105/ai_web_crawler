@@ -65,7 +65,7 @@ paginated_ai_web_crawler/
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/ib105/ai_web_crawler
    cd paginated_ai_web_crawler
    ```
 
