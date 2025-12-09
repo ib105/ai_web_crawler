@@ -8,14 +8,11 @@ from crawl4ai import (
     CacheMode,
     CrawlerRunConfig,
     LLMExtractionStrategy,
-    # LLMConfig
 )
 
-from models.venue import Venue
 from models.mcnews import News
 from utils.data_utils import is_complete_news, is_duplicate_news
 
-# os.environ["OPENAI_API_KEY"] = "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"
 
 def get_browser_config() -> BrowserConfig:
     """
@@ -24,13 +21,11 @@ def get_browser_config() -> BrowserConfig:
     Returns:
         BrowserConfig: The configuration settings for the browser.
     """
-    # https://docs.crawl4ai.com/core/browser-crawler-config/
     return BrowserConfig(
-        browser_type="chromium",  # Type of browser to simulate
-        headless=True,  # Whether to run in headless mode (no GUI)
-        verbose=True,  # Enable verbose logging
+        browser_type="chromium",
+        headless=True,
+        verbose=True,
     )
-
 
 
 def get_llm_strategynew() -> LLMExtractionStrategy:
@@ -40,42 +35,21 @@ def get_llm_strategynew() -> LLMExtractionStrategy:
     Returns:
         LLMExtractionStrategy: The settings for how to extract data using LLM.
     """
-
-    # llm_config = LLMConfig(
-    #     provider="openai/gpt-4.1",
-    #     api_token=os.getenv('OPENAI_API_KEY')
-    # )
-    # llm_config = LLMConfig(
-    #     provider="gemini/gemini-1.5-flash",  # Specify the Gemini provider
-    #     api_token=os.getenv('GEMINI_API_KEY')  # Retrieve the API key from environment variables
-    # )
-
-    # llm_config = LLMConfig(
-    #     provider=f'azure/{os.getenv("OPENAI_DEPLOYMENT_NAME")}',  # Specify the Gemini provider
-    #     api_token=os.getenv("OPENAI_API_KEY"),  # Retrieve the API key from environment variables
-    #     base_url=os.getenv("OPENAI_API_BASE"),
-    # )
-
-#     llm = LLM(
-#     model=f'azure/{os.getenv("OPENAI_DEPLOYMENT_NAME")}',  # Must be the deployment name, not just "gpt-4"
-#     api_key=os.getenv("OPENAI_API_KEY"),
-    # base_url=os.getenv("OPENAI_API_BASE"),
-    # api_version=os.getenv("OPENAI_API_VERSION"),
-#     temperature=0.2
-# )
-    # https://docs.crawl4ai.com/api/strategies/#llmextractionstrategy
     return LLMExtractionStrategy(
         provider="gemini/gemini-2.5-flash",
         api_token=os.getenv("GEMINI_API_KEY"),
-        # provider="groq/deepseek-r1-distill-llama-70b",  # Name of the LLM provider
-        # api_token=os.getenv("GROQ_API_KEY"),  # API token for authentication
-        schema=News.model_json_schema(),  # JSON schema of the data model
-        extraction_type="schema",  # Type of extraction to perform
+        schema=News.model_json_schema(),
+        extraction_type="schema",
         instruction=(
-            "Extract news articles. Return JSON array with Title, description, url, publishtime, provider."
-        ),  # Instructions for the LLM
-        input_format="html",  # Format of the input content
-        verbose=True,  # Enable verbose logging
+            "Extract news articles from the HTML content. "
+            "For each article, extract the following fields: "
+            "title (article headline), description (brief summary), "
+            "url (article link), publishtime (publication date/time), "
+            "provider (source/author). "
+            "Return a valid JSON array of objects with these exact field names in lowercase."
+        ),
+        input_format="html",
+        verbose=True,
     )
 
 
@@ -95,7 +69,6 @@ async def check_no_results(
     Returns:
         bool: True if "No Results Found" message is found, False otherwise.
     """
-    # Fetch the page without any CSS selector or extraction strategy
     result = await crawler.arun(
         url=url,
         config=CrawlerRunConfig(
@@ -155,10 +128,10 @@ async def fetch_and_process_page(
     result = await crawler.arun(
         url=url,
         config=CrawlerRunConfig(
-            cache_mode=CacheMode.BYPASS,  # Do not use cached data
-            extraction_strategy=llm_strategy,  # Strategy for data extraction
-            css_selector=css_selector,  # Target specific content on the page
-            session_id=session_id,  # Unique session ID for the crawl
+            cache_mode=CacheMode.BYPASS,
+            extraction_strategy=llm_strategy,
+            css_selector=css_selector,
+            session_id=session_id,
         ),
     )
 
@@ -166,38 +139,85 @@ async def fetch_and_process_page(
         print(f"Error fetching page {page_number}: {result.error_message}")
         return [], False
 
-    # Parse extracted content
-    extracted_data = json.loads(result.extracted_content)
-    if not extracted_data:
-        print(f"No news found on page {page_number}.")
+    # Parse extracted content with better error handling
+    try:
+        extracted_data = json.loads(result.extracted_content)
+        
+        # Handle if extraction returned an error dict instead of list
+        if isinstance(extracted_data, dict):
+            if extracted_data.get("error"):
+                print(f"LLM extraction error on page {page_number}: {extracted_data.get('content', 'Unknown error')}")
+                return [], False
+            # If it's a single dict, wrap it in a list
+            extracted_data = [extracted_data]
+        
+        # Handle if it's not a list after conversion
+        if not isinstance(extracted_data, list):
+            print(f"Unexpected data format on page {page_number}: {type(extracted_data)}")
+            print(f"Data: {extracted_data}")
+            return [], False
+            
+        if not extracted_data:
+            print(f"No news found on page {page_number}.")
+            return [], False
+            
+    except json.JSONDecodeError as e:
+        print(f"Error parsing JSON on page {page_number}: {e}")
+        print(f"Raw content: {result.extracted_content[:500]}...")  # Print first 500 chars
+        return [], False
+    except Exception as e:
+        print(f"Unexpected error processing page {page_number}: {e}")
         return [], False
 
-    print(result.cleaned_html)  # Debugging: Print cleaned HTML
-    # After parsing extracted content
-    print("Extracted data:", extracted_data)
+    # Debug output
+    print(f"Successfully parsed {len(extracted_data)} items from page {page_number}")
+    if extracted_data and len(extracted_data) > 0:
+        print(f"Sample item keys: {list(extracted_data[0].keys())}")
 
     # Process news
     complete_news = []
-    for news in extracted_data:
+    for idx, news in enumerate(extracted_data):
         # Skip if not a dict or has error flag
-        if not isinstance(news, dict) or news.get("error"):
+        if not isinstance(news, dict):
+            print(f"Item {idx} is not a dict: {type(news)}")
+            continue
+            
+        if news.get("error"):
+            print(f"Item {idx} has error flag: {news.get('content', 'No error message')}")
             continue
         
         # Remove error key if present
         news.pop("error", None)
-            
+        
+        # Check for required keys
         if not is_complete_news(news, required_keys):
+            missing_keys = [key for key in required_keys if key not in news]
+            print(f"Item {idx} missing required keys: {missing_keys}")
+            print(f"Available keys: {list(news.keys())}")
             continue
-            
-        if is_duplicate_news(news["Title"], seen_names):
-            continue
+        
+        # Check for duplicates
+        try:
+            news_title = news.get("title", "")
+            if not news_title:
+                print(f"Item {idx} has empty title")
+                continue
+                
+            if is_duplicate_news(news_title, seen_names):
+                print(f"Duplicate found: {news_title[:50]}...")
+                continue
 
-        seen_names.add(news["Title"])
-        complete_news.append(news)
+            seen_names.add(news_title)
+            complete_news.append(news)
+            
+        except KeyError as e:
+            print(f"KeyError processing item {idx}: {e}")
+            print(f"Item data: {news}")
+            continue
 
     if not complete_news:
-        print(f"No complete news found on page {page_number}.")
+        print(f"No complete news found on page {page_number} after filtering.")
         return [], False
 
-    print(f"Extracted {len(complete_news)} news from page {page_number}.")
+    print(f"Extracted {len(complete_news)} valid news items from page {page_number}.")
     return complete_news, False  # Continue crawling

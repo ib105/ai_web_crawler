@@ -31,9 +31,7 @@ def save_news_to_csv(news: list, filename: str):
         # Create blob service client
         blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         
-        # Add timestamp to filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        blob_name = f"news_{timestamp}.csv"
+        blob_name = f"latest_news.csv"
         
         # Create CSV in memory
         output = StringIO()

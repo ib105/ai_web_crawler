@@ -5,7 +5,7 @@
 BASE_URL = "https://www.moneycontrol.com/city"
 CSS_SELECTOR = "[class='topictabpane']"
 REQUIRED_KEYS = [
-    "Title",
+    "title",
     "description",
     "url",    
     'publishtime',

@@ -6,7 +6,7 @@ class News(BaseModel):
     Represents the data structure of a News.
     """
 
-    Title: str
+    title: str
     description: str
     publishtime: str
     url: str
