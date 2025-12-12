@@ -23,7 +23,7 @@ A web scraping application that automatically extracts news articles from websit
 
 ## Architecture
 
-![Alt text](https://drive.google.com/file/d/1rqj5zYQ0oXxV4WWi8WWO8Hbgbb-xQWAa/view?usp=sharing)
+![Pipeline Architecture](./News-Scraper-Workflow.png)
 
 The pipeline consists of five main layers:
 1. **Orchestration Layer**: Azure Logic App triggers daily container execution
