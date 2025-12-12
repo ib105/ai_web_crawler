@@ -1,16 +1,16 @@
-# Automated News Web Scraper
+# Automated News Web Scraper with Real-Time Streaming
 
-A web scraping application that automatically extracts news articles from websites and stores them in Azure Blob Storage for analysis in Microsoft Fabric.
+A web scraping application that automatically extracts news articles from websites and streams them in real-time to Microsoft Fabric Lakehouse using Kafka event streaming.
 
 ## Features
 
 - **Asynchronous Web Scraping**: Uses crawl4ai for efficient, paginated content extraction
 - **AI-Powered Extraction**: Leverages Google Gemini AI to intelligently parse and structure news data
-- **Cloud Storage Integration**: Automatically saves results to Azure Blob Storage
+- **Real-Time Event Streaming**: Streams data via Confluent Kafka to Microsoft Fabric Eventstream
+- **Delta Lake Storage**: Automatically ingests into Lakehouse with ACID transactions
 - **Duplicate Detection**: Prevents re-scraping of already collected articles
 - **Dockerized Deployment**: Runs in Azure Container Instances for serverless execution
 - **Automated Scheduling**: Daily execution via Azure Logic Apps
-- **Fabric Integration**: Seamlessly imports data into Microsoft Fabric Lakehouse
 
 ## Prerequisites
 
@@ -18,29 +18,19 @@ A web scraping application that automatically extracts news articles from websit
 - Docker Desktop
 - Azure Subscription
 - Google Gemini API Key
-- Microsoft Fabric workspace (for data analysis)
+- Microsoft Fabric workspace with Eventstream
+- Confluent Kafka credentials (or Fabric Event Hub)
 
 ## Architecture
 
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  Azure Logic    │────▶│  Azure Container │────▶│  Azure Blob     │
-│  App (9:00 AM)  │     │  Instance        │     │  Storage        │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-                              │                           │
-                              │ Scrapes News              │
-                              ▼                           ▼
-                        ┌──────────────┐          ┌─────────────────┐
-                        │  Target      │          │  Fabric Pipeline│
-                        │  Website     │          │  (9:30 AM)      │
-                        └──────────────┘          └─────────────────┘
-                                                          │
-                                                          ▼
-                                                   ┌─────────────────┐
-                                                   │  Fabric         │
-                                                   │  Lakehouse      │
-                                                   └─────────────────┘
-```
+[Architecture diagram will be placed here]
+
+The pipeline consists of five main layers:
+1. **Orchestration Layer**: Azure Logic App triggers daily container execution
+2. **Data Extraction Layer**: Python scraper with Crawl4AI and Gemini AI
+3. **Data Processing Layer**: Pydantic models for validation and deduplication
+4. **Data Streaming Layer**: Kafka producer streams to Fabric Eventstream
+5. **Data Storage Layer**: Continuous ingestion into Delta Lake tables
 
 ## Project Structure
 
@@ -55,7 +45,7 @@ paginated_ai_web_crawler/
 ├── models/
 │   └── mcnews.py         # Pydantic data models
 └── utils/
-    ├── data_utils.py     # CSV generation and Azure Storage
+    ├── data_utils.py     # Kafka streaming utilities
     └── scraper_utils.py  # Web scraping logic
 ```
 
@@ -86,8 +76,10 @@ paginated_ai_web_crawler/
    Create a `.env` file:
    ```env
    GEMINI_API_KEY=your_gemini_api_key
-   AZURE_STORAGE_CONNECTION_STRING=your_connection_string
-   AZURE_STORAGE_CONTAINER=news-data
+   KAFKA_BOOTSTRAP_SERVERS=your_eventstream_endpoint
+   KAFKA_SASL_USERNAME=your_kafka_username
+   KAFKA_SASL_PASSWORD=your_kafka_password
+   KAFKA_TOPIC=news-events
    ```
 
 5. **Run locally**
@@ -124,21 +116,7 @@ docker run --env-file .env news-scraper:latest
    docker push webnewsscraper.azurecr.io/news-scraper:latest
    ```
 
-3. **Create Azure Storage Account**
-   ```bash
-   az storage account create \
-     --name newsdata \
-     --resource-group Fabric \
-     --location centralindia \
-     --sku Standard_LRS
-   
-   az storage container create \
-     --name news-data \
-     --account-name newsdata \
-     --auth-mode login
-   ```
-
-4. **Test container deployment**
+3. **Test container deployment**
    ```bash
    az container create \
      --resource-group Fabric \
@@ -172,19 +150,43 @@ The scraper will now run automatically every day at 9:00 AM.
 
 ## Microsoft Fabric Integration
 
-### Fabric Pipeline Setup
+### Eventstream Setup
 
-1. **Create Data Pipeline** in Fabric workspace
-2. **Add Copy Data Activity**:
-   - **Source**: Azure Blob Storage
-     - Connection: newsdata storage account
-     - Container: news-data
-     - File: latest_news.csv
-   - **Destination**: Lakehouse
-     - Root folder: Files
-     - Path: news/
-3. **Schedule Pipeline**: Daily at 9:30 AM IST
-4. **Run and verify** data flows into Lakehouse
+1. **Create Eventstream** in Fabric workspace
+2. **Add Custom Endpoint Source**:
+   - Protocol: Kafka
+   - Authentication: SASL_SSL
+   - Note the connection details for your application
+3. **Add Lakehouse Destination**:
+   - Target: Your Fabric Lakehouse
+   - Table: news_data
+   - Mode: Append (continuous ingestion)
+4. **Configure Event Processing** (optional):
+   - Add transformations if needed
+   - Set up event filtering
+5. **Start the Eventstream**
+
+### Verify Data Flow
+
+1. Monitor Eventstream metrics in Fabric portal
+2. Check Delta table in Lakehouse:
+   ```sql
+   SELECT COUNT(*) FROM news_data;
+   SELECT * FROM news_data ORDER BY published_date DESC LIMIT 10;
+   ```
+3. View Parquet files and transaction logs in Lakehouse Files section
+
+## Kafka Configuration
+
+The application uses Confluent Kafka client with the following settings:
+
+- **Protocol**: SASL_SSL
+- **SASL Mechanism**: PLAIN
+- **Compression**: gzip
+- **Delivery Guarantee**: At-least-once
+- **Idempotence**: Enabled
+
+Messages are sent page-by-page with automatic retry logic for failed deliveries.
 
 ## Troubleshooting
 
@@ -193,8 +195,11 @@ The scraper will now run automatically every day at 9:00 AM.
 **Issue**: `BrowserType.launch: Executable doesn't exist`
 - **Solution**: Install Playwright browsers: `playwright install chromium`
 
-**Issue**: `Bad data detected at line X`
-- **Solution**: The CSV cleaning logic handles special characters. Ensure you're using the updated `data_utils.py`
+**Issue**: Kafka connection timeout
+- **Solution**: Verify bootstrap servers, credentials, and network connectivity. Check Eventstream status in Fabric.
+
+**Issue**: Messages not appearing in Lakehouse
+- **Solution**: Verify Eventstream destination is configured and active. Check for processing errors in Eventstream monitoring.
 
 **Issue**: Docker build fails
 - **Solution**: Ensure Docker Desktop is running and you have sufficient disk space
@@ -216,26 +221,39 @@ az container logs \
   --follow
 ```
 
-### Check Blob Storage
+### Monitor Eventstream
 
-```bash
-az storage blob list \
-  --container-name news-data \
-  --account-name newsdata \
-  --auth-mode login \
-  --output table
+1. Open Fabric workspace
+2. Navigate to Eventstream
+3. View metrics:
+   - Incoming events per second
+   - Processing latency
+   - Error rate
+
+### Query Lakehouse Data
+
+```sql
+-- Check latest ingestion
+SELECT MAX(published_date) as latest_article FROM news_data;
+
+-- Count articles by date
+SELECT 
+    CAST(published_date AS DATE) as article_date,
+    COUNT(*) as article_count
+FROM news_data
+GROUP BY CAST(published_date AS DATE)
+ORDER BY article_date DESC;
 ```
-
-
-
 
 ## Resources
 
 - [crawl4ai Documentation](https://docs.crawl4ai.com/)
 - [Azure Container Instances](https://docs.microsoft.com/azure/container-instances/)
-- [Microsoft Fabric](https://learn.microsoft.com/fabric/)
+- [Microsoft Fabric Eventstream](https://learn.microsoft.com/fabric/real-time-analytics/event-streams/)
+- [Confluent Kafka Python](https://docs.confluent.io/kafka-clients/python/current/overview.html)
+- [Delta Lake](https://delta.io/)
 - [Playwright Documentation](https://playwright.dev/python/)
 
 ---
 
-**Last Updated**: December 2025
+**Last Updated**: December 2024
