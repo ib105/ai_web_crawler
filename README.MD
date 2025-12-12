@@ -19,11 +19,11 @@ A web scraping application that automatically extracts news articles from websit
 - Azure Subscription
 - Google Gemini API Key
 - Microsoft Fabric workspace with Eventstream
-- Confluent Kafka credentials (or Fabric Event Hub)
+- Confluent Kafka credentials
 
 ## Architecture
 
-[Architecture diagram will be placed here]
+![Alt text](https://drive.google.com/file/d/1rqj5zYQ0oXxV4WWi8WWO8Hbgbb-xQWAa/view?usp=sharing)
 
 The pipeline consists of five main layers:
 1. **Orchestration Layer**: Azure Logic App triggers daily container execution
@@ -166,16 +166,6 @@ The scraper will now run automatically every day at 9:00 AM.
    - Set up event filtering
 5. **Start the Eventstream**
 
-### Verify Data Flow
-
-1. Monitor Eventstream metrics in Fabric portal
-2. Check Delta table in Lakehouse:
-   ```sql
-   SELECT COUNT(*) FROM news_data;
-   SELECT * FROM news_data ORDER BY published_date DESC LIMIT 10;
-   ```
-3. View Parquet files and transaction logs in Lakehouse Files section
-
 ## Kafka Configuration
 
 The application uses Confluent Kafka client with the following settings:
@@ -188,62 +178,6 @@ The application uses Confluent Kafka client with the following settings:
 
 Messages are sent page-by-page with automatic retry logic for failed deliveries.
 
-## Troubleshooting
-
-### Common Issues
-
-**Issue**: `BrowserType.launch: Executable doesn't exist`
-- **Solution**: Install Playwright browsers: `playwright install chromium`
-
-**Issue**: Kafka connection timeout
-- **Solution**: Verify bootstrap servers, credentials, and network connectivity. Check Eventstream status in Fabric.
-
-**Issue**: Messages not appearing in Lakehouse
-- **Solution**: Verify Eventstream destination is configured and active. Check for processing errors in Eventstream monitoring.
-
-**Issue**: Docker build fails
-- **Solution**: Ensure Docker Desktop is running and you have sufficient disk space
-
-**Issue**: Container exits with code 1
-- **Solution**: Check logs: `az container logs --resource-group Fabric --name <container-name>`
-
-**Issue**: Azure region not allowed
-- **Solution**: Use an allowed region like `centralindia` instead of `eastus`
-
-## Monitoring
-
-### View Container Logs
-
-```bash
-az container logs \
-  --resource-group Fabric \
-  --name news-scraper-test \
-  --follow
-```
-
-### Monitor Eventstream
-
-1. Open Fabric workspace
-2. Navigate to Eventstream
-3. View metrics:
-   - Incoming events per second
-   - Processing latency
-   - Error rate
-
-### Query Lakehouse Data
-
-```sql
--- Check latest ingestion
-SELECT MAX(published_date) as latest_article FROM news_data;
-
--- Count articles by date
-SELECT 
-    CAST(published_date AS DATE) as article_date,
-    COUNT(*) as article_count
-FROM news_data
-GROUP BY CAST(published_date AS DATE)
-ORDER BY article_date DESC;
-```
 
 ## Resources
 
@@ -256,4 +190,4 @@ ORDER BY article_date DESC;
 
 ---
 
-**Last Updated**: December 2024
+**Last Updated**: December 2025
