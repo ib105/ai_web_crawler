@@ -4,6 +4,7 @@ from crawl4ai import AsyncWebCrawler
 from dotenv import load_dotenv
 
 from config import BASE_URL, CSS_SELECTOR, REQUIRED_KEYS
+from utils.kafka_producer import send_news_to_kafka
 from utils.data_utils import (
     save_news_to_csv
 )
@@ -12,7 +13,7 @@ from utils.scraper_utils import (
     get_browser_config,
     get_llm_strategynew,
 )
-
+import os
 load_dotenv()
 
 
@@ -20,21 +21,17 @@ async def crawl_news():
     """
     Main function to crawl news data from the website.
     """
-    # Initialize configurations
     browser_config = get_browser_config()
     llm_strategy = get_llm_strategynew()
     session_id = "news_crawl_session"
-
-    # Initialize state variables
+    
     page_number = 1
     all_news = []
     seen_names = set()
+    kafka_topic = os.getenv('KAFKA_TOPIC', 'news-events')
 
-    # Start the web crawler context
-    # https://docs.crawl4ai.com/api/async-webcrawler/#asyncwebcrawler
     async with AsyncWebCrawler(config=browser_config) as crawler:
         while True:
-            # Retry logic for API overload
             news = []
             for attempt in range(3):
                 news, no_results_found = await fetch_and_process_page(
@@ -55,6 +52,10 @@ async def crawl_news():
                 print(f"No news from page {page_number} after retries.")
                 break
 
+            # Send to Kafka immediately after each page
+            send_news_to_kafka(news, kafka_topic)
+            print(f"Sent {len(news)} news from page {page_number} to Kafka")
+            
             all_news.extend(news)
 
             if page_number > 20:
@@ -63,14 +64,13 @@ async def crawl_news():
             page_number += 1
             await asyncio.sleep(2)
 
-    # Save the collected news to a CSV file
+    # Save complete CSV at the end
     if all_news:
         save_news_to_csv(all_news, "complete_news.csv")
         print(f"Saved {len(all_news)} news to 'complete_news.csv'.")
     else:
         print("No news were found during the crawl.")
 
-    # Display usage statistics for the LLM strategy
     llm_strategy.show_usage()
 
 
