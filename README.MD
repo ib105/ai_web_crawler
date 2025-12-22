@@ -1,6 +1,6 @@
 # Automated News Web Scraper with Real-Time Streaming
 
-A web scraping application that automatically extracts news articles from websites and streams them in real-time to Microsoft Fabric Lakehouse using Kafka event streaming.
+A web scraping application that automatically extracts news articles from multiple sources and streams them in real-time to Microsoft Fabric Lakehouse using Kafka event streaming.
 
 ## Features
 
@@ -9,6 +9,7 @@ A web scraping application that automatically extracts news articles from websit
 - **Real-Time Event Streaming**: Streams data via Confluent Kafka to Microsoft Fabric Eventstream
 - **Delta Lake Storage**: Automatically ingests into Lakehouse with ACID transactions
 - **Duplicate Detection**: Prevents re-scraping of already collected articles
+- **Multi-Source Support**: Scrapes from Moneycontrol, The Hindu, Indian Express, and NewsData API
 - **Dockerized Deployment**: Runs in Azure Container Instances for serverless execution
 - **Automated Scheduling**: Daily execution via Azure Logic Apps
 
@@ -17,9 +18,10 @@ A web scraping application that automatically extracts news articles from websit
 - Python 3.12+
 - Docker Desktop
 - Azure Subscription
-- Google Gemini API Key
+- Google Gemini API Keys (3 keys for parallel processing)
 - Microsoft Fabric workspace with Eventstream
 - Confluent Kafka credentials
+- NewsData.io API Key
 
 ## Architecture
 
@@ -37,7 +39,7 @@ The pipeline consists of five main layers:
 ```
 paginated_ai_web_crawler/
 ├── main.py                 # Main application entry point
-├── config.py              # Configuration settings (URLs, selectors)
+├── config.py              # Source configurations (URLs, selectors, API keys)
 ├── pyproject.toml         # Python dependencies
 ├── Dockerfile             # Container configuration
 ├── .dockerignore          # Docker build exclusions
@@ -45,8 +47,10 @@ paginated_ai_web_crawler/
 ├── models/
 │   └── mcnews.py         # Pydantic data models
 └── utils/
-    ├── data_utils.py     # Kafka streaming utilities
-    └── scraper_utils.py  # Web scraping logic
+    ├── kafka_producer.py  # Kafka streaming utilities
+    ├── data_utils.py      # Data utilities
+    ├── scraper_utils.py   # Web scraping logic
+    └── api_scraper.py     # API integration utilities
 ```
 
 ## Installation
@@ -75,10 +79,13 @@ paginated_ai_web_crawler/
    
    Create a `.env` file:
    ```env
-   GEMINI_API_KEY=your_gemini_api_key
+   GEMINI_API_KEY_1=your_gemini_api_key_1
+   GEMINI_API_KEY_2=your_gemini_api_key_2
+   GEMINI_API_KEY_3=your_gemini_api_key_3
+   NEWSDATA_API_KEY=your_newsdata_api_key
    KAFKA_BOOTSTRAP_SERVERS=your_eventstream_endpoint
-   KAFKA_SASL_USERNAME=your_kafka_username
-   KAFKA_SASL_PASSWORD=your_kafka_password
+   KAFKA_USERNAME=your_kafka_username
+   KAFKA_PASSWORD=your_kafka_password
    KAFKA_TOPIC=news-events
    ```
 
@@ -159,7 +166,7 @@ The scraper will now run automatically every day at 9:00 AM.
    - Note the connection details for your application
 3. **Add Lakehouse Destination**:
    - Target: Your Fabric Lakehouse
-   - Table: news_data
+   - Table: stream_news
    - Mode: Append (continuous ingestion)
 4. **Configure Event Processing** (optional):
    - Add transformations if needed
@@ -177,7 +184,6 @@ The application uses Confluent Kafka client with the following settings:
 - **Idempotence**: Enabled
 
 Messages are sent page-by-page with automatic retry logic for failed deliveries.
-
 
 ## Resources
 
