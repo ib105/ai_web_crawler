@@ -5,7 +5,6 @@ from crawl4ai import AsyncWebCrawler
 
 from config import SOURCES, REQUIRED_KEYS
 from utils.kafka_producer import send_news_to_kafka
-from utils.data_utils import save_news_to_csv
 from utils.api_scraper import fetch_newsdata_api, process_newsdata_with_gemini
 from utils.scraper_utils import (
     fetch_and_process_page,
@@ -67,9 +66,6 @@ async def crawl_scraper_source(source_name: str, source_config: dict):
             page_number += 1
             await asyncio.sleep(2)
 
-    if all_news:
-        save_news_to_csv(all_news, f"{source_name}_news.csv")
-        print(f"[{source_name}] Saved {len(all_news)} news to CSV")
     
     llm_strategy.show_usage()
     return all_news
@@ -104,7 +100,6 @@ async def crawl_api_source(source_name: str, source_config: dict):
     
     if news:
         send_news_to_kafka(news, kafka_topic)
-        save_news_to_csv(news, f"{source_name}_news.csv")
         print(f"[{source_name}] Sent {len(news)} news to Kafka")
     
     return news

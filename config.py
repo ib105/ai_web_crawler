@@ -33,3 +33,5 @@ SOURCES = {
 }
 
 REQUIRED_KEYS = ['title', 'description', 'url', 'publishtime', 'provider']
+
+TIMESTAMP_FORMAT = "datetime"
