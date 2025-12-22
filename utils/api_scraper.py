@@ -2,7 +2,7 @@ import requests
 import os
 import json
 from crawl4ai import LLMExtractionStrategy
-from mcnews import NewsdataNews
+from models.mcnews import NewsdataNews
 
 def fetch_newsdata_api(api_key: str, country: str = 'in', language: str = 'en'):
     """Fetch news from newsdata.io API"""
